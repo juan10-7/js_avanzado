@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animación Sencilla de Pelota</title>
+    <!-- Tailwind CSS CDN para un diseño limpio sin complicaciones -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #f0f6fc;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between items-center relative select-none">
+
+    <!-- Canvas donde se dibuja la animación -->
+    <canvas id="miCanvas" class="absolute inset-0 z-0"></canvas>
+
+    <!-- Encabezado simple -->
+    <div class="relative z-10 pt-6 text-center pointer-events-none">
+        <h1 class="text-xl font-medium tracking-wide text-indigo-300">Círculo Interactivo</h1>
+        <p class="text-xs text-slate-400 mt-1">Sigue al ratón o rebota por la pantalla</p>
+    </div>
+
+    <!-- Panel de controles minimalista -->
+    <div class="relative z-10 pb-6 pointer-events-auto">
+        <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl px-6 py-3 flex items-center gap-6 shadow-xl">
+            
+            <!-- Botón Pausa / Reanudar -->
+            <button id="btnPausa" class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">
+                Pausar
+            </button>
+
+            <!-- Control de Velocidad -->
+            <div class="flex items-center gap-3 text-sm text-slate-300">
+                <span>Velocidad:</span>
+                <input type="range" id="sliderVelocidad" min="1" max="10" value="4" class="w-24 accent-indigo-500 cursor-pointer">
+                <span id="valorVelocidad" class="text-xs text-indigo-400 w-4">4</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 1. Obtener el lienzo y su contexto de dibujo
+        const canvas = document.getElementById('miCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Ajustar el tamaño del canvas al tamaño de la pantalla
+        function redimensionar() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', redimensionar);
+        redimensionar();
+
+        // 2. Propiedades de la pelota y la animación
+        let pelota = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radio: 25,
+            vx: 3,  // Velocidad horizontal
+            vy: 3,  // Velocidad vertical
+            color: '#818cf8'
+        };
+
+        let velocidadBase = 4;
+        let estaPausado = false;
+
+        // Posición del ratón (opcional para interacción)
+        let raton = { x: null, y: null };
+
+        // 3. Detectar movimiento del ratón
+        window.addEventListener('mousemove', (e) => {
+            raton.x = e.clientX;
+            raton.y = e.clientY;
+        });
+
+        // Si el ratón sale de la ventana, vuelve a rebotar libremente
+        window.addEventListener('mouseleave', () => {
+            raton.x = null;
+            raton.y = null;
+        });
+
+        // 4. Bucle principal de animación (Main Loop)
+        function animar() {
+            if (!estaPausado) {
+                // Dibujar un fondo semitransparente para crear el efecto de estela (rastro suave)
+                ctx.fillStyle = 'rgba(13, 17, 23, 0.2)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // A) Si el ratón está activo, la pelota va hacia el ratón suavemente
+                if (raton.x !== null && raton.y !== null) {
+                    let dx = raton.x - pelota.x;
+                    let dy = raton.y - pelota.y;
+                    
+                    // Movimiento fluido hacia el objetivo (interpolación suave)
+                    pelota.x += dx * (velocidadBase * 0.02);
+                    pelota.y += dy * (velocidadBase * 0.02);
+                } 
+                // B) Si no hay ratón, rebota por los bordes de la pantalla
+                else {
+                    pelota.x += pelota.vx;
+                    pelota.y += pelota.vy;
+
+                    // Rebote en bordes horizontales (izquierda/derecha)
+                    if (pelota.x - pelota.radio < 0 || pelota.x + pelota.radio > canvas.width) {
+                        pelota.vx *= -1;
+                    }
+                    // Rebote en bordes verticales (arriba/abajo)
+                    if (pelota.y - pelota.radio < 0 || pelota.y + pelota.radio > canvas.height) {
+                        pelota.vy *= -1;
+                    }
+                }
+
+                // Dibujar la pelota con un suave resplandor
+                ctx.beginPath();
+                ctx.arc(pelota.x, pelota.y, pelota.radio, 0, Math.PI * 2);
+                ctx.fillStyle = pelota.color;
+                ctx.shadowColor = pelota.color;
+                ctx.shadowBlur = 20; // Resplandor
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            // Solicitar el siguiente fotograma
+            requestAnimationFrame(animar);
+        }
+
+        // 5. Controles de usuario (Pausa y Velocidad)
+        const btnPausa = document.getElementById('btnPausa');
+        const sliderVelocidad = document.getElementById('sliderVelocidad');
+        const valorVelocidad = document.getElementById('valorVelocidad');
+
+        btnPausa.addEventListener('click', () => {
+            estaPausado = !estaPausado;
+            btnPausa.textContent = estaPausado ? 'Reanudar' : 'Pausar';
+            btnPausa.classList.toggle('bg-emerald-600', estaPausado);
+            btnPausa.classList.toggle('bg-indigo-600', !estaPausado);
+        });
+
+        sliderVelocidad.addEventListener('input', (e) => {
+            velocidadBase = parseInt(e.target.value);
+            valorVelocidad.textContent = velocidadBase;
+
+            // Actualizar la dirección según la nueva velocidad
+            pelota.vx = (pelota.vx >= 0 ? 1 : -1) * velocidadBase;
+            pelota.vy = (pelota.vy >= 0 ? 1 : -1) * velocidadBase;
+        });
+
+        // Iniciar animación en cuanto cargue la página
+        animar();
+    </script>
+</body>
+</html>
